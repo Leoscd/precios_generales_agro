@@ -412,20 +412,45 @@ function readXlsx(file) {
 // si falla intenta la URL configurada manualmente.
 async function autoLoadFromRepo() {
   setSyncS('loading', 'Cargando precios...');
-  // 1. Intentar ruta relativa (funciona en GitHub Pages si el Excel está en el repo)
+  // 1. JSON puro — siempre funciona en GitHub Pages
   try {
-    const res = await fetch('./Repositorio_Precios.xlsx?_=' + Date.now(), { cache: 'no-cache' });
+    const res = await fetch('./data/precios.json?_=' + Date.now(), { cache: 'no-cache' });
     if (res.ok) {
-      processXlsx(new Uint8Array(await res.arrayBuffer()), 'EXCEL');
-      return;
+      const productos = await res.json();
+      if (Array.isArray(productos) && productos.length > 0) {
+        loadDesdeJson(productos);
+        return;
+      }
     }
   } catch(_) {}
-  // 2. Fallback: URL configurada manualmente
-  if (DB.config.repoUrl) {
-    await triggerSync(true);
-  } else {
-    setSyncS('ok', 'Listo');
-  }
+  // 2. xlsx relativo
+  try {
+    const res = await fetch('./Repositorio_Precios.xlsx?_=' + Date.now(), { cache: 'no-cache' });
+    if (res.ok) { processXlsx(new Uint8Array(await res.arrayBuffer()), 'EXCEL'); return; }
+  } catch(_) {}
+  // 3. URL configurada manualmente
+  if (DB.config.repoUrl) { await triggerSync(true); return; }
+  setSyncS('ok', 'Listo');
+  if (!DB.productos.length) toast('No se encontró el archivo de precios. Cargá un Excel.', 'info');
+}
+
+function loadDesdeJson(productos) {
+  const exMap = {};
+  DB.productos.forEach(p => { exMap[p.cod] = p; });
+  const newCods = new Set(productos.map(p => p.cod));
+  const soloManuales = DB.productos.filter(p => p.es_manual && !newCods.has(p.cod));
+  const result = [...soloManuales];
+  productos.forEach(np => {
+    const ex = exMap[np.cod];
+    if (ex && ex.es_manual) result.push({ ...np, precio: ex.precio, es_manual: true });
+    else result.push({ ...np });
+  });
+  DB.productos = result;
+  DB.config.lastSync = new Date().toISOString();
+  saveStorage();
+  renderAll();
+  setSyncS('ok', 'Datos cargados');
+  toast(`✓ ${result.length} insumos cargados`, 'success');
 }
 
 async function triggerSync(silent = false) {
@@ -832,9 +857,16 @@ function exportHist() {
   dlBlob(new Blob([JSON.stringify(DB.historial, null, 2)], { type: 'application/json' }), 'historial_precios.json');
   toast('Historial exportado', 'success');
 }
-function exportProductos() {
-  dlBlob(new Blob([JSON.stringify(DB.productos, null, 2)], { type: 'application/json' }), 'precios_actuales.json');
-  toast('Precios exportados', 'success');
+function exportProductos() { descargarPreciosJson(); }
+
+function descargarPreciosJson() {
+  const data = DB.productos.filter(p => !p.es_manual).map(p => ({
+    cod: p.cod, articulo: p.articulo, rubro: p.rubro, precio: p.precio,
+    moneda: p.moneda, ultima_act: p.ultima_act, activo: p.activo,
+    es_manual: false, fuente: 'EXCEL'
+  }));
+  dlBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'precios.json');
+  toast('Descargado — subilo a data/ del repo', 'info');
 }
 function importHist(e) {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
@@ -880,7 +912,12 @@ function showSyncResult(chg, total, source) {
         <div style="font-size:11px;color:#555">Sin cambios</div>
       </div>
     </div>
-    <p style="font-size:11px;color:#aaa;text-align:center">Fuente: ${source} · ${fmtDate(new Date())}</p>`;
+    <p style="font-size:11px;color:#aaa;text-align:center">Fuente: ${source} · ${fmtDate(new Date())}</p>
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:7px;padding:12px;margin-top:10px">
+      <div style="font-size:12px;font-weight:700;color:#e65100;margin-bottom:5px">⬇ Para que todos vean los cambios</div>
+      <div style="font-size:11px;color:#555;margin-bottom:8px">Descargá el JSON y subilo a la carpeta <b>data/</b> del repo en GitHub.</div>
+      <button class="btn btn-p btn-sm" onclick="descargarPreciosJson();closeMo('syncMo')">📥 Descargar precios.json actualizado</button>
+    </div>`;
   openMo('syncMo');
 }
 
