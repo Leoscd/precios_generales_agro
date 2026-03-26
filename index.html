@@ -366,7 +366,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadStorage();
   setupDrop();
   renderAll();
-  if (DB.config.repoUrl) triggerSync(true);
+  // Siempre intenta cargar el Excel del mismo repositorio (ruta relativa)
+  // Esto hace que cualquier persona que abra la URL vea los precios actualizados
+  autoLoadFromRepo();
 });
 
 function loadStorage() {
@@ -404,6 +406,26 @@ function readXlsx(file) {
     catch(err) { toast('Error al leer Excel: ' + err.message, 'error'); setSyncS('error', 'Error'); }
   };
   r.readAsArrayBuffer(file);
+}
+
+// Carga automática al abrir la app: primero prueba ruta relativa (mismo repo),
+// si falla intenta la URL configurada manualmente.
+async function autoLoadFromRepo() {
+  setSyncS('loading', 'Cargando precios...');
+  // 1. Intentar ruta relativa (funciona en GitHub Pages si el Excel está en el repo)
+  try {
+    const res = await fetch('./Repositorio_Precios.xlsx?_=' + Date.now(), { cache: 'no-cache' });
+    if (res.ok) {
+      processXlsx(new Uint8Array(await res.arrayBuffer()), 'EXCEL');
+      return;
+    }
+  } catch(_) {}
+  // 2. Fallback: URL configurada manualmente
+  if (DB.config.repoUrl) {
+    await triggerSync(true);
+  } else {
+    setSyncS('ok', 'Listo');
+  }
 }
 
 async function triggerSync(silent = false) {
