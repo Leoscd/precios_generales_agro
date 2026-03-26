@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Repositorio Precios Agro</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --verde:#2e7d32;--verde2:#1b5e20;--verde-l:#e8f5e9;--verde-m:#a5d6a7;
+      --amarillo:#f9a825;--rojo:#c62828;--rojo-l:#ffebee;
+      --bg:#f1f8e9;--card:#fff;--border:#c8e6c9;--text:#263238;--text2:#546e7a;
+      --shadow:0 2px 8px rgba(0,0,0,.08);--shadow-lg:0 4px 20px rgba(0,0,0,.15);
+      --r:8px;
+    }
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+
+    /* HEADER */
+    .hd{background:linear-gradient(135deg,#1a3c1e,#2e7d32);color:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+    .hd-left{display:flex;align-items:center;gap:10px}
+    .hd-logo{font-size:26px}
+    .hd-title{font-size:17px;font-weight:700}
+    .hd-sub{font-size:11px;opacity:.75;margin-top:1px}
+    .hd-right{display:flex;align-items:center;gap:8px}
+    .sync-s{display:flex;align-items:center;gap:5px;font-size:11px;opacity:.85}
+    .sync-dot{width:7px;height:7px;border-radius:50%;background:#4caf50;flex-shrink:0}
+    .sync-dot.loading{animation:pulse 1s infinite;background:#ffb300}
+    .sync-dot.error{background:#ef5350}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+    /* BUTTONS */
+    .btn{padding:7px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15)}
+    .btn:active{transform:translateY(0)}
+    .btn-p{background:#4caf50;color:#fff}.btn-p:hover{background:#43a047}
+    .btn-s{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35)}.btn-s:hover{background:rgba(255,255,255,.28)}
+    .btn-o{background:#fff;color:var(--verde);border:1.5px solid var(--verde)}.btn-o:hover{background:var(--verde-l)}
+    .btn-d{background:#ef5350;color:#fff}.btn-d:hover{background:#e53935}
+    .btn-sm{padding:5px 11px;font-size:12px}
+    .btn-ic{padding:5px 7px;border-radius:5px;background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ic:hover{background:var(--verde-l);color:var(--verde);border-color:var(--verde)}
+
+    /* STATS */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:14px 20px}
+    .sc{background:var(--card);border-radius:var(--r);padding:14px 18px;box-shadow:var(--shadow);border-left:4px solid var(--verde)}
+    .sc.y{border-left-color:#f9a825}.sc.r{border-left-color:var(--rojo)}.sc.g{border-left-color:#90a4ae}
+    .sc-val{font-size:26px;font-weight:700;color:var(--verde)}
+    .sc.y .sc-val{color:#f57f17}.sc.r .sc-val{color:var(--rojo)}.sc.g .sc-val{color:#546e7a}
+    .sc-lbl{font-size:11px;color:var(--text2);margin-top:1px}
+
+    /* TABS */
+    .tabs{display:flex;gap:2px;padding:0 20px;background:var(--card);border-bottom:2px solid var(--border);position:sticky;top:58px;z-index:90}
+    .tb{padding:11px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:5px}
+    .tb:hover{color:var(--verde)}.tb.active{color:var(--verde);border-bottom-color:var(--verde)}
+    .tc{display:inline-block;background:var(--verde-l);color:var(--verde2);border-radius:9px;padding:0 6px;font-size:10px}
+
+    /* TAB CONTENT */
+    .tab{display:none;padding:0 20px 24px}.tab.active{display:block}
+
+    /* FILTERS */
+    .filters{display:flex;gap:8px;align-items:center;padding:14px 0;flex-wrap:wrap}
+    .si{flex:1;min-width:180px;padding:7px 10px 7px 32px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 9px center no-repeat}
+    .si:focus{outline:none;border-color:var(--verde)}
+    select.fs{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;background:#fff;cursor:pointer;color:var(--text)}
+    select.fs:focus{outline:none;border-color:var(--verde)}
+
+    /* TABLE */
+    .tw{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    thead th{background:var(--verde2);color:#fff;padding:9px 11px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+    tbody tr{border-bottom:1px solid #f0f4f0;transition:background .12s}
+    tbody tr:hover{background:#f0f7f0}
+    tbody tr.inactive{opacity:.45}
+    tbody tr.pu{background:#fff5f5}tbody tr.pu:hover{background:#ffe8e8}
+    tbody tr.pd{background:#f3fff5}tbody tr.pd:hover{background:#e3fae9}
+    td{padding:8px 11px;font-size:13px;vertical-align:middle}
+    td.cod{color:var(--text2);font-size:11px;font-family:monospace}
+    .rb{display:inline-block;padding:2px 8px;border-radius:9px;font-size:10px;font-weight:700;background:var(--verde-l);color:var(--verde2)}
+    .var{display:inline-flex;align-items:center;gap:2px;font-weight:700;font-size:11px;padding:2px 6px;border-radius:9px}
+    .var.up{background:var(--rojo-l);color:var(--rojo)}.var.dn{background:var(--verde-l);color:var(--verde2)}.var.nw{background:#e3f2fd;color:#1565c0}.var.no{color:#bbb}
+    .fb{font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700}
+    .fm{background:#fff3e0;color:#e65100}.fe{background:var(--verde-l);color:var(--verde2)}
+    .sp{color:#bbb;font-style:italic;font-size:12px}
+
+    /* NO DATA */
+    .nd{text-align:center;padding:50px 20px;color:var(--text2)}
+    .nd-i{font-size:44px;margin-bottom:10px}
+    .nd-t{font-size:16px;font-weight:600;margin-bottom:6px}
+    .nd-s{font-size:12px}
+
+    /* PAGINATION */
+    .pag{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);background:#fafafa}
+    .pag-i{font-size:12px;color:var(--text2)}
+    .pag-b{display:flex;gap:3px}
+    .pb{padding:3px 9px;border:1px solid var(--border);background:#fff;border-radius:4px;cursor:pointer;font-size:12px}
+    .pb:hover{background:var(--verde-l);border-color:var(--verde)}
+    .pb.active{background:var(--verde);color:#fff;border-color:var(--verde)}
+
+    /* ANALYSIS */
+    .ag{display:grid;grid-template-columns:300px 1fr;gap:16px;padding-top:14px}
+    .ps{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+    .ps h3{font-size:12px;font-weight:700;color:var(--verde2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
+    .pl{max-height:420px;overflow-y:auto}
+    .pi{padding:7px 9px;cursor:pointer;border-radius:4px;transition:background .12s}
+    .pi:hover{background:var(--verde-l)}.pi.sel{background:var(--verde);color:#fff}
+    .pi-n{font-size:12px;font-weight:600}.pi-r{font-size:10px;opacity:.7}
+    .cc{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:18px}
+    .cc-t{font-size:14px;font-weight:700;color:var(--verde2)}.cc-s{font-size:11px;color:var(--text2);margin-bottom:14px}
+    .pst{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+    .psi{text-align:center;padding:9px;background:var(--verde-l);border-radius:6px}
+    .psv{font-size:15px;font-weight:700;color:var(--verde2)}.psl{font-size:10px;color:var(--text2)}
+
+    /* CONFIG */
+    .cs{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;max-width:620px;margin-top:14px}
+    .cs h3{font-size:13px;font-weight:700;color:var(--verde2);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+    .cs.dz{border:1.5px solid #ffcdd2}.cs.dz h3{color:var(--rojo)}
+    .fg{margin-bottom:12px}
+    .fg label{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+    .fi{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:6px;font-size:13px}
+    .fi:focus{outline:none;border-color:var(--verde)}
+    .ca{display:flex;gap:8px;flex-wrap:wrap}
+    .hint{font-size:11px;color:#999;margin-top:4px}
+
+    /* MODAL */
+    .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+    .mo.open{display:flex}
+    .md{background:#fff;border-radius:10px;padding:22px;width:460px;max-width:95vw;box-shadow:var(--shadow-lg);animation:si .2s ease}
+    @keyframes si{from{transform:translateY(-18px);opacity:0}to{transform:translateY(0);opacity:1}}
+    .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .mt{font-size:15px;font-weight:700;color:var(--verde2)}
+    .mx{background:none;border:none;cursor:pointer;font-size:18px;color:var(--text2)}.mx:hover{color:var(--rojo)}
+    .mf{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+
+    /* TOAST */
+    .tc-wrap{position:fixed;bottom:18px;right:18px;z-index:2000;display:flex;flex-direction:column;gap:7px}
+    .toast{background:#263238;color:#fff;padding:11px 16px;border-radius:7px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.3);animation:ti .25s ease;display:flex;align-items:center;gap:8px;max-width:320px}
+    .toast.success{background:#2e7d32}.toast.error{background:var(--rojo)}.toast.info{background:#1565c0}
+    @keyframes ti{from{transform:translateX(16px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+    /* INSTRUCTIONS BOX */
+    .inst{background:#fff8e1;border:1px solid #ffe082;border-radius:var(--r);padding:14px 16px;margin-bottom:14px;font-size:12px;line-height:1.7;max-width:620px;margin-top:14px}
+    .inst h4{color:#e65100;font-size:13px;margin-bottom:8px}
+    .inst ol{padding-left:18px}
+    .inst li{margin-bottom:4px}
+    .inst code{background:#fff3e0;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px}
+
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:#f0f0f0}
+    ::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px}
+    @media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.ag{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hd">
+  <div class="hd-left">
+    <span class="hd-logo">🌾</span>
+    <div>
+      <div class="hd-title">Repositorio de Precios Agro</div>
+      <div class="hd-sub" id="hdSub">Sin datos cargados</div>
+    </div>
+  </div>
+  <div class="hd-right">
+    <div class="sync-s">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncTxt">Listo</span>
+    </div>
+    <button class="btn btn-s btn-sm" onclick="triggerSync()" title="Sincronizar con repositorio">↻ Sync Repo</button>
+    <label class="btn btn-p btn-sm" for="xlsxInput" style="cursor:pointer">📂 Cargar Excel</label>
+    <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="onFileInput(event)">
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="sc"><div class="sc-val" id="sTotal">0</div><div class="sc-lbl">Total Insumos</div></div>
+  <div class="sc y"><div class="sc-val" id="sConP">0</div><div class="sc-lbl">Con Precio</div></div>
+  <div class="sc g"><div class="sc-val" id="sSinP">0</div><div class="sc-lbl">Sin Precio</div></div>
+  <div class="sc r"><div class="sc-val" id="sCambios">0</div><div class="sc-lbl">Cambios Historial</div></div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tb active" onclick="switchTab('precios',this)">📋 Precios <span class="tc" id="tcP">0</span></button>
+  <button class="tb" onclick="switchTab('historial',this)">📈 Historial <span class="tc" id="tcH">0</span></button>
+  <button class="tb" onclick="switchTab('analisis',this)">📊 Análisis</button>
+  <button class="tb" onclick="switchTab('config',this)">⚙️ Configuración</button>
+</div>
+
+<!-- TAB: PRECIOS -->
+<div class="tab active" id="tab-precios">
+  <div class="filters">
+    <input type="text" class="si" id="srch" placeholder="Buscar insumo por nombre o código..." oninput="applyFilters()">
+    <select class="fs" id="fRubro" onchange="applyFilters()"><option value="">Todos los rubros</option></select>
+    <select class="fs" id="fPrecio" onchange="applyFilters()">
+      <option value="">Todos</option><option value="con">Con precio</option><option value="sin">Sin precio</option>
+    </select>
+    <select class="fs" id="fActivo" onchange="applyFilters()">
+      <option value="si">Solo activos</option><option value="">Activos + inactivos</option>
+    </select>
+    <button class="btn btn-o btn-sm" onclick="openAddModal()">+ Agregar insumo</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th style="width:58px">COD</th>
+        <th>ARTÍCULO</th>
+        <th style="width:155px">RUBRO</th>
+        <th style="width:150px">PRECIO LISTA</th>
+        <th style="width:60px">MON.</th>
+        <th style="width:105px">ÚLTIMA ACT.</th>
+        <th style="width:105px">VARIACIÓN</th>
+        <th style="width:70px">ACCIÓN</th>
+      </tr></thead>
+      <tbody id="ptbody">
+        <tr><td colspan="8"><div class="nd"><div class="nd-i">🌾</div><div class="nd-t">Sin datos cargados</div><div class="nd-s">Arrastrá un Excel aquí o usá el botón "Cargar Excel"</div></div></td></tr>
+      </tbody>
+    </table>
+    <div class="pag" id="pagEl"></div>
+  </div>
+</div>
+
+<!-- TAB: HISTORIAL -->
+<div class="tab" id="tab-historial">
+  <div class="filters">
+    <input type="text" class="si" id="hSrch" placeholder="Buscar en historial..." oninput="renderHist()" style="max-width:240px">
+    <select class="fs" id="hFRubro" onchange="renderHist()"><option value="">Todos los rubros</option></select>
+    <select class="fs" id="hFFuente" onchange="renderHist()">
+      <option value="">Todas las fuentes</option><option value="EXCEL">Excel</option><option value="MANUAL">Manual</option>
+    </select>
+    <button class="btn btn-o btn-sm" onclick="exportHist()">⬇ Exportar historial</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th style="width:130px">FECHA</th>
+        <th>ARTÍCULO</th>
+        <th style="width:145px">RUBRO</th>
+        <th style="width:130px">PRECIO ANT.</th>
+        <th style="width:130px">PRECIO NUEVO</th>
+        <th style="width:95px">VARIACIÓN</th>
+        <th style="width:85px">FUENTE</th>
+      </tr></thead>
+      <tbody id="htbody">
+        <tr><td colspan="7"><div class="nd"><div class="nd-i">📈</div><div class="nd-t">Sin historial</div><div class="nd-s">Los cambios de precio quedarán registrados aquí</div></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- TAB: ANÁLISIS -->
+<div class="tab" id="tab-analisis">
+  <div class="ag" id="agrid">
+    <div class="ps">
+      <h3>Seleccionar insumo</h3>
+      <input type="text" class="fi" id="aSrch" placeholder="Buscar..." oninput="renderPList()" style="margin-bottom:10px">
+      <div class="pl" id="plist"></div>
+    </div>
+    <div class="cc" id="chartBox">
+      <div class="nd" style="padding:80px 0"><div class="nd-i">📊</div><div class="nd-t">Seleccioná un insumo</div><div class="nd-s">Para ver la evolución de precios</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: CONFIG -->
+<div class="tab" id="tab-config">
+  <div class="inst">
+    <h4>📖 Cómo usar esta app en GitHub Pages</h4>
+    <ol>
+      <li>Creá un repositorio en GitHub y subí estos archivos: <code>index.html</code>, <code>Repositorio_Precios.xlsx</code>, <code>data/historial.json</code></li>
+      <li>Activá GitHub Pages en Settings → Pages → Branch: main</li>
+      <li>Copiá la URL raw del Excel (botón "Raw" en GitHub) y pegala abajo en "URL del Excel en el repo"</li>
+      <li>Cuando actualices precios: editá el Excel, subilo al repo. La app detecta los cambios automáticamente</li>
+      <li>El historial se guarda en tu navegador. Exportalo a JSON y subilo al repo para no perderlo</li>
+    </ol>
+  </div>
+  <div class="cs">
+    <h3>🔗 Repositorio GitHub</h3>
+    <div class="fg">
+      <label>URL raw del archivo Excel en el repositorio</label>
+      <input type="text" class="fi" id="cfgUrl" placeholder="https://raw.githubusercontent.com/USUARIO/REPO/main/Repositorio_Precios.xlsx">
+      <div class="hint">Ejemplo: https://raw.githubusercontent.com/miusuario/agro-precios/main/Repositorio_Precios.xlsx</div>
+    </div>
+    <div class="ca">
+      <button class="btn btn-p btn-sm" onclick="saveConfig()">💾 Guardar</button>
+      <button class="btn btn-o btn-sm" onclick="triggerSync()">↻ Sincronizar ahora</button>
+    </div>
+  </div>
+  <div class="cs">
+    <h3>📦 Importar / Exportar</h3>
+    <div class="ca">
+      <button class="btn btn-o btn-sm" onclick="exportHist()">⬇ Exportar historial JSON</button>
+      <label class="btn btn-o btn-sm" for="impHistF" style="cursor:pointer">⬆ Importar historial JSON</label>
+      <input type="file" id="impHistF" accept=".json" style="display:none" onchange="importHist(event)">
+      <button class="btn btn-o btn-sm" onclick="exportProductos()">⬇ Exportar precios actuales</button>
+    </div>
+  </div>
+  <div class="cs dz">
+    <h3>⚠️ Zona peligrosa</h3>
+    <div class="ca">
+      <button class="btn btn-d btn-sm" onclick="confirmAction('¿Borrar TODOS los datos?','Esto elimina insumos, precios e historial. No se puede deshacer.',clearAll)">🗑 Borrar todos los datos</button>
+      <button class="btn btn-sm" style="background:#fff3e0;color:#e65100;border:1px solid #ffcc80" onclick="confirmAction('¿Borrar todo el historial?','Los precios actuales no se modifican.',clearHist)">🗑 Borrar solo historial</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR / AGREGAR -->
+<div class="mo" id="editMo">
+  <div class="md">
+    <div class="mh"><span class="mt" id="editMoTitle">Editar insumo</span><button class="mx" onclick="closeMo('editMo')">✕</button></div>
+    <div id="editMoBody"></div>
+    <div class="mf">
+      <button class="btn btn-sm" style="background:#eee;color:#333" onclick="closeMo('editMo')">Cancelar</button>
+      <button class="btn btn-p btn-sm" onclick="saveEdit()">💾 Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIRMAR -->
+<div class="mo" id="confMo">
+  <div class="md" style="width:400px">
+    <div class="mh"><span class="mt" id="confTitle">Confirmar</span><button class="mx" onclick="closeMo('confMo')">✕</button></div>
+    <div id="confBody" style="font-size:13px;color:var(--text2)"></div>
+    <div class="mf">
+      <button class="btn btn-sm" style="background:#eee;color:#333" onclick="closeMo('confMo')">Cancelar</button>
+      <button class="btn btn-d btn-sm" id="confOk">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RESULTADO SYNC -->
+<div class="mo" id="syncMo">
+  <div class="md">
+    <div class="mh"><span class="mt">Resultado de actualización</span><button class="mx" onclick="closeMo('syncMo')">✕</button></div>
+    <div id="syncMoBody"></div>
+    <div class="mf"><button class="btn btn-p btn-sm" onclick="closeMo('syncMo')">Listo</button></div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="tc-wrap" id="toasts"></div>
+
+<script>
+/* =========================================================
+   STATE
+   ========================================================= */
+const DB = {
+  productos: [],  // {cod, articulo, rubro, precio, moneda, activo, ultima_act, es_manual, fuente}
+  historial: [],  // {id, fecha, cod, articulo, rubro, precio_anterior, precio_nuevo, moneda, fuente}
+  config: { repoUrl: '', lastSync: null }
+};
+let filtered = [];
+let curPage = 1;
+const PG = 50;
+let selCod = null;
+let pchart = null;
+let editCod = null;
+let isNew = false;
+
+/* =========================================================
+   INIT
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  loadStorage();
+  setupDrop();
+  renderAll();
+  if (DB.config.repoUrl) triggerSync(true);
+});
+
+function loadStorage() {
+  try {
+    const p = localStorage.getItem('agro_p'), h = localStorage.getItem('agro_h'), c = localStorage.getItem('agro_c');
+    if (p) DB.productos = JSON.parse(p);
+    if (h) DB.historial = JSON.parse(h);
+    if (c) DB.config = { ...DB.config, ...JSON.parse(c) };
+  } catch(e) { console.warn('Error cargando storage', e); }
+}
+
+function saveStorage() {
+  try {
+    localStorage.setItem('agro_p', JSON.stringify(DB.productos));
+    localStorage.setItem('agro_h', JSON.stringify(DB.historial));
+    localStorage.setItem('agro_c', JSON.stringify(DB.config));
+  } catch(e) { toast('Error guardando datos — localStorage lleno?', 'error'); }
+}
+
+/* =========================================================
+   EXCEL PARSING
+   ========================================================= */
+function onFileInput(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  e.target.value = '';
+  readXlsx(f);
+}
+
+function readXlsx(file) {
+  setSyncS('loading', 'Leyendo...');
+  const r = new FileReader();
+  r.onload = e => {
+    try { processXlsx(new Uint8Array(e.target.result), 'EXCEL'); }
+    catch(err) { toast('Error al leer Excel: ' + err.message, 'error'); setSyncS('error', 'Error'); }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+async function triggerSync(silent = false) {
+  const url = DB.config.repoUrl;
+  if (!url) { if (!silent) toast('Configurá la URL del repositorio primero', 'info'); return; }
+  setSyncS('loading', 'Sincronizando...');
+  try {
+    const res = await fetch(url + '?_=' + Date.now(), { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    processXlsx(new Uint8Array(await res.arrayBuffer()), 'EXCEL');
+  } catch(err) {
+    setSyncS('error', 'Error sync');
+    if (!silent) toast('Error sync: ' + err.message, 'error');
+  }
+}
+
+function normalStr(s) {
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+
+function processXlsx(data, source) {
+  const wb = XLSX.read(data, { type: 'array', cellDates: true });
+
+  // Find PRECIOS sheet
+  const shName = wb.SheetNames.find(n => normalStr(n).includes('PRECIO')) || wb.SheetNames[0];
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[shName], { defval: null });
+  if (!rows.length) { toast('Sin datos en el Excel', 'error'); setSyncS('error', 'Sin datos'); return; }
+
+  // Flexible column mapping
+  function mapRows(rows) {
+    return rows.map(row => {
+      const norm = {};
+      Object.keys(row).forEach(k => { norm[normalStr(k)] = row[k]; });
+      const g = (...ks) => { for (const k of ks) { const v = norm[normalStr(k)]; if (v !== null && v !== undefined) return v; } return null; };
+      const precio = g('PRECIOLISTA','PRECIOLISTA','PRECIO');
+      const precioNum = precio !== null ? parseFloat(precio) : null;
+      const ua = g('ULTIMAACT','LTIMAACT','ACT','ULTIMAACTUALIZACION');
+      let uaStr = null;
+      if (ua instanceof Date) uaStr = ua.toISOString();
+      else if (ua) uaStr = String(ua);
+      return {
+        cod: g('COD'), articulo: g('ARTICULO','ARTCULO'),
+        rubro: g('RUBRO'), precio: isNaN(precioNum) ? null : precioNum,
+        moneda: g('MONEDA') || 'ARS', ultima_act: uaStr,
+        activo: g('ACTIVO') || 'SI'
+      };
+    }).filter(r => r.cod !== null && r.articulo);
+  }
+
+  const mapped = mapRows(rows);
+  const changes = mergeProducts(mapped, source);
+  DB.config.lastSync = new Date().toISOString();
+  saveStorage();
+  renderAll();
+  setSyncS('ok', 'Actualizado');
+  showSyncResult(changes, mapped.length, source);
+}
+
+function mergeProducts(newPs, source) {
+  const chg = { priceChange: 0, newProd: 0, noChange: 0 };
+  const now = new Date().toISOString();
+  const exMap = {};
+  DB.productos.forEach(p => { exMap[p.cod] = p; });
+  const newCods = new Set(newPs.map(p => p.cod));
+  const manualOnly = DB.productos.filter(p => p.es_manual && !newCods.has(p.cod));
+  const result = [...manualOnly];
+
+  newPs.forEach(np => {
+    const ex = exMap[np.cod];
+    if (!ex) {
+      result.push({ ...np, fuente: source, es_manual: false });
+      chg.newProd++;
+      if (np.precio !== null) {
+        addHistEntry(now, np.cod, np.articulo, np.rubro, null, np.precio, np.moneda || 'ARS', source);
+        chg.priceChange++;
+      }
+    } else {
+      const m = { ...ex, articulo: np.articulo, rubro: np.rubro, activo: np.activo, moneda: np.moneda, fuente: source };
+      if (np.precio !== null && np.precio !== undefined) {
+        if (np.precio !== ex.precio) {
+          addHistEntry(now, np.cod, np.articulo, np.rubro, ex.precio, np.precio, np.moneda || 'ARS', source);
+          chg.priceChange++;
+          m.precio = np.precio;
+          m.ultima_act = now;
+        } else {
+          chg.noChange++;
+          m.precio = np.precio;
+          if (np.ultima_act) m.ultima_act = np.ultima_act;
+        }
+      } else {
+        chg.noChange++;
+        if (np.ultima_act) m.ultima_act = np.ultima_act;
+      }
+      result.push(m);
+    }
+  });
+
+  DB.productos = result;
+  return chg;
+}
+
+function addHistEntry(fecha, cod, articulo, rubro, previo, nuevo, moneda, fuente) {
+  DB.historial.unshift({ id: genId(), fecha, cod, articulo, rubro, precio_anterior: previo, precio_nuevo: nuevo, moneda, fuente });
+}
+
+/* =========================================================
+   RENDER ALL
+   ========================================================= */
+function renderAll() {
+  updateStats();
+  fillRubroSelects();
+  applyFilters();
+  renderHist();
+  renderPList();
+  updateHdSub();
+  document.getElementById('cfgUrl').value = DB.config.repoUrl || '';
+}
+
+function updateHdSub() {
+  const el = document.getElementById('hdSub');
+  if (DB.config.lastSync) el.textContent = 'Última actualización: ' + fmtDate(new Date(DB.config.lastSync));
+  else if (DB.productos.length) el.textContent = DB.productos.length + ' insumos en memoria';
+  else el.textContent = 'Sin datos cargados';
+}
+
+function updateStats() {
+  const act = DB.productos.filter(p => p.activo !== 'NO');
+  const cp = act.filter(p => p.precio !== null && p.precio !== undefined);
+  document.getElementById('sTotal').textContent = act.length;
+  document.getElementById('sConP').textContent = cp.length;
+  document.getElementById('sSinP').textContent = act.length - cp.length;
+  document.getElementById('sCambios').textContent = DB.historial.length;
+  document.getElementById('tcP').textContent = act.length;
+  document.getElementById('tcH').textContent = DB.historial.length;
+}
+
+function fillRubroSelects() {
+  const rubs = [...new Set(DB.productos.map(p => p.rubro).filter(Boolean))].sort();
+  ['fRubro','hFRubro'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = '<option value="">Todos los rubros</option>';
+    rubs.forEach(r => { const o = document.createElement('option'); o.value = o.textContent = r; el.appendChild(o); });
+    el.value = cur;
+  });
+}
+
+/* =========================================================
+   PRECIOS TABLE
+   ========================================================= */
+function applyFilters() {
+  const srch = document.getElementById('srch').value.toLowerCase().trim();
+  const rub = document.getElementById('fRubro').value;
+  const pr = document.getElementById('fPrecio').value;
+  const act = document.getElementById('fActivo').value;
+
+  filtered = DB.productos.filter(p => {
+    if (act === 'si' && p.activo === 'NO') return false;
+    if (rub && p.rubro !== rub) return false;
+    if (pr === 'con' && (p.precio === null || p.precio === undefined)) return false;
+    if (pr === 'sin' && p.precio !== null && p.precio !== undefined) return false;
+    if (srch && !`${p.cod} ${p.articulo} ${p.rubro}`.toLowerCase().includes(srch)) return false;
+    return true;
+  });
+  curPage = 1;
+  renderPreciosTable();
+}
+
+function renderPreciosTable() {
+  const tbody = document.getElementById('ptbody');
+  if (!filtered.length) {
+    const msg = DB.productos.length ? 'Sin resultados — probá otros filtros' : 'Cargá un Excel para comenzar';
+    tbody.innerHTML = `<tr><td colspan="8"><div class="nd"><div class="nd-i">${DB.productos.length?'🔍':'🌾'}</div><div class="nd-t">${DB.productos.length?'Sin resultados':'Sin datos'}</div><div class="nd-s">${msg}</div></div></td></tr>`;
+    renderPag(0); return;
+  }
+  const s = (curPage - 1) * PG, e = s + PG;
+  tbody.innerHTML = filtered.slice(s, e).map(rowHtml).join('');
+  renderPag(filtered.length);
+}
+
+function lastHist(cod) { return DB.historial.find(h => h.cod == cod); }
+
+function rowHtml(p) {
+  const h = lastHist(p.cod);
+  let varHtml = '<span class="var no">—</span>', rowCls = '';
+  if (h) {
+    const [prev, curr] = [h.precio_anterior, h.precio_nuevo];
+    if (prev === null || prev === undefined) { varHtml = '<span class="var nw">NUEVO</span>'; }
+    else if (curr > prev) { const pct = (((curr-prev)/prev)*100).toFixed(1); varHtml = `<span class="var up">▲ ${pct}%</span>`; rowCls = 'pu'; }
+    else if (curr < prev) { const pct = (((prev-curr)/prev)*100).toFixed(1); varHtml = `<span class="var dn">▼ ${pct}%</span>`; rowCls = 'pd'; }
+  }
+  const pHtml = p.precio !== null && p.precio !== undefined
+    ? `<b>${fmtP(p.precio)}</b> <small style="color:var(--text2)">${p.moneda||'ARS'}</small>${p.es_manual?' <span class="fb fm">M</span>':''}`
+    : `<span class="sp">Sin precio</span>`;
+  const fStr = p.ultima_act ? fmtDate(new Date(p.ultima_act)) : '—';
+  const inact = p.activo === 'NO' ? ' inactive' : '';
+  return `<tr class="${rowCls}${inact}" data-cod="${p.cod}">
+    <td class="cod">${p.cod}</td>
+    <td style="max-width:280px"><span title="${escH(p.articulo)}">${escH(p.articulo)}</span></td>
+    <td><span class="rb">${p.rubro||'—'}</span></td>
+    <td>${pHtml}</td>
+    <td style="color:var(--text2);font-size:12px">${p.moneda||'ARS'}</td>
+    <td style="font-size:11px;color:#999">${fStr}</td>
+    <td>${varHtml}</td>
+    <td><button class="btn btn-ic btn-sm" onclick="openEdit(${p.cod})" title="Editar">✏️</button></td>
+  </tr>`;
+}
+
+function renderPag(total) {
+  const el = document.getElementById('pagEl');
+  if (total <= PG) { el.innerHTML = `<span class="pag-i">Mostrando ${total} insumos</span><span></span>`; return; }
+  const tp = Math.ceil(total / PG);
+  const s = (curPage-1)*PG+1, e = Math.min(curPage*PG, total);
+  let btns = '';
+  for (let i = 1; i <= tp; i++) {
+    if (i === 1 || i === tp || Math.abs(i - curPage) <= 1) btns += `<button class="pb ${i===curPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    else if (Math.abs(i - curPage) === 2) btns += `<span style="padding:2px 5px">…</span>`;
+  }
+  el.innerHTML = `<span class="pag-i">Mostrando ${s}–${e} de ${total}</span><div class="pag-b">${btns}</div>`;
+}
+
+function goPage(n) { curPage = n; renderPreciosTable(); document.querySelector('.tw').scrollIntoView({behavior:'smooth',block:'start'}); }
+
+/* =========================================================
+   HISTORIAL
+   ========================================================= */
+function renderHist() {
+  const tbody = document.getElementById('htbody');
+  const srch = document.getElementById('hSrch').value.toLowerCase();
+  const rub = document.getElementById('hFRubro').value;
+  const fu = document.getElementById('hFFuente').value;
+
+  let filt = DB.historial.filter(h => {
+    if (rub && h.rubro !== rub) return false;
+    if (fu && h.fuente !== fu) return false;
+    if (srch && !`${h.cod} ${h.articulo} ${h.rubro}`.toLowerCase().includes(srch)) return false;
+    return true;
+  });
+
+  if (!filt.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="nd"><div class="nd-i">📈</div><div class="nd-t">Sin historial</div><div class="nd-s">Los cambios de precios quedarán registrados aquí</div></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filt.slice(0, 300).map(h => {
+    const [prev, curr] = [h.precio_anterior, h.precio_nuevo];
+    let varHtml = '<span class="var nw">NUEVO</span>', rowCls = '';
+    if (prev !== null && prev !== undefined) {
+      if (curr > prev) { const p = (((curr-prev)/prev)*100).toFixed(1); varHtml = `<span class="var up">▲ ${p}%</span>`; rowCls = 'pu'; }
+      else if (curr < prev) { const p = (((prev-curr)/prev)*100).toFixed(1); varHtml = `<span class="var dn">▼ ${p}%</span>`; rowCls = 'pd'; }
+      else varHtml = '<span class="var no">Sin cambio</span>';
+    }
+    const fb = h.fuente === 'MANUAL' ? '<span class="fb fm">MANUAL</span>' : '<span class="fb fe">EXCEL</span>';
+    return `<tr class="${rowCls}">
+      <td style="font-size:11px;white-space:nowrap">${fmtDate(new Date(h.fecha))}</td>
+      <td style="font-size:12px">${escH(h.articulo)}</td>
+      <td><span class="rb">${h.rubro||'—'}</span></td>
+      <td style="color:var(--text2)">${prev !== null && prev !== undefined ? fmtP(prev)+' '+(h.moneda||'ARS') : '<span style="color:#ccc">—</span>'}</td>
+      <td style="font-weight:700">${curr !== null ? fmtP(curr)+' '+(h.moneda||'ARS') : '—'}</td>
+      <td>${varHtml}</td>
+      <td>${fb}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* =========================================================
+   ANÁLISIS / CHART
+   ========================================================= */
+function renderPList() {
+  const el = document.getElementById('plist');
+  const srch = (document.getElementById('aSrch')?.value || '').toLowerCase();
+  const codsH = new Set(DB.historial.map(h => h.cod));
+  let items = DB.productos.filter(p => codsH.has(p.cod) && (!srch || `${p.cod} ${p.articulo} ${p.rubro}`.toLowerCase().includes(srch)));
+  if (!items.length) {
+    el.innerHTML = `<div style="color:#bbb;font-size:12px;text-align:center;padding:18px">Sin insumos con historial aún</div>`;
+    return;
+  }
+  el.innerHTML = items.map(p => `
+    <div class="pi ${selCod==p.cod?'sel':''}" onclick="selProd(${p.cod})">
+      <div class="pi-n">${escH(p.articulo)}</div>
+      <div class="pi-r">${p.rubro} · COD ${p.cod}</div>
+    </div>`).join('');
+}
+
+function selProd(cod) { selCod = cod; renderPList(); renderChart(cod); }
+
+function renderChart(cod) {
+  const box = document.getElementById('chartBox');
+  const p = DB.productos.find(x => x.cod == cod);
+  if (!p) return;
+  const hist = DB.historial.filter(h => h.cod == cod).sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
+  if (!hist.length) { box.innerHTML = `<div class="nd"><div class="nd-i">📊</div><div class="nd-t">Sin historial para este insumo</div></div>`; return; }
+
+  const labels = hist.map(h => fmtDateShort(new Date(h.fecha)));
+  const prices = hist.map(h => h.precio_nuevo);
+  const valid = prices.filter(x => x !== null);
+  const minP = Math.min(...valid), maxP = Math.max(...valid);
+  const avgP = valid.reduce((a,b)=>a+b,0)/valid.length;
+  const varT = valid.length > 1 ? (((valid[valid.length-1]-valid[0])/valid[0])*100).toFixed(1) : null;
+  const mon = p.moneda || 'ARS';
+
+  box.innerHTML = `
+    <div class="cc-t">${escH(p.articulo)}</div>
+    <div class="cc-s">${p.rubro} · COD ${p.cod} · ${hist.length} registros</div>
+    <div class="pst">
+      <div class="psi"><div class="psv">${fmtP(valid[valid.length-1])} ${mon}</div><div class="psl">Precio actual</div></div>
+      <div class="psi"><div class="psv">${fmtP(minP)} ${mon}</div><div class="psl">Mínimo historial</div></div>
+      <div class="psi"><div class="psv">${fmtP(maxP)} ${mon}</div><div class="psl">Máximo historial</div></div>
+      <div class="psi" style="background:${varT>0?'#ffebee':varT<0?'var(--verde-l)':'#f5f5f5'}">
+        <div class="psv" style="color:${varT>0?'var(--rojo)':varT<0?'var(--verde2)':'#546e7a'}">${varT!==null?(varT>0?'▲ ':'▼ ')+Math.abs(varT)+'%':'—'}</div>
+        <div class="psl">Variación total</div>
+      </div>
+    </div>
+    <canvas id="chartCanvas" height="200"></canvas>`;
+
+  if (pchart) pchart.destroy();
+  pchart = new Chart(document.getElementById('chartCanvas').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Precio', data: prices, borderColor: '#2e7d32', backgroundColor: 'rgba(46,125,50,.1)', tension: .35, fill: true, pointRadius: 5, pointHoverRadius: 7, pointBackgroundColor: '#2e7d32' }] },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `Precio: ${fmtP(c.raw)} ${mon}` } } },
+      scales: { y: { ticks: { callback: v => fmtP(v) } } }
+    }
+  });
+}
+
+/* =========================================================
+   EDIT / ADD MODAL
+   ========================================================= */
+function openEdit(cod) {
+  editCod = cod; isNew = false;
+  const p = DB.productos.find(x => x.cod == cod);
+  if (!p) return;
+  document.getElementById('editMoTitle').textContent = 'Editar: ' + p.articulo;
+  const rubs = [...new Set(DB.productos.map(x => x.rubro).filter(Boolean))].sort();
+  const ropts = rubs.map(r => `<option ${r===p.rubro?'selected':''}>${r}</option>`).join('') + '<option value="__new">+ Nuevo rubro...</option>';
+  document.getElementById('editMoBody').innerHTML = `
+    <div class="fg"><label>COD</label><input class="fi" value="${p.cod}" readonly style="background:#f5f5f5;color:#999"></div>
+    <div class="fg"><label>Artículo</label><input class="fi" id="eArt" value="${escH(p.articulo)}"></div>
+    <div class="fg"><label>Rubro</label><select class="fi" id="eRub">${ropts}</select></div>
+    <div class="fg"><label>Precio Lista</label><input type="number" class="fi" id="ePre" value="${p.precio!==null&&p.precio!==undefined?p.precio:''}" placeholder="Sin precio"></div>
+    <div class="fg"><label>Moneda</label><select class="fi" id="eMon"><option ${p.moneda==='ARS'?'selected':''}>ARS</option><option ${p.moneda==='USD'?'selected':''}>USD</option></select></div>
+    <div class="fg"><label>Estado</label><select class="fi" id="eAct"><option value="SI" ${p.activo!=='NO'?'selected':''}>Activo</option><option value="NO" ${p.activo==='NO'?'selected':''}>Inactivo</option></select></div>`;
+  openMo('editMo');
+}
+
+function openAddModal() {
+  editCod = null; isNew = true;
+  const maxCod = DB.productos.reduce((m, p) => Math.max(m, typeof p.cod==='number'?p.cod:0), 0);
+  document.getElementById('editMoTitle').textContent = 'Agregar nuevo insumo';
+  const rubs = [...new Set(DB.productos.map(x => x.rubro).filter(Boolean))].sort();
+  const ropts = rubs.map(r => `<option>${r}</option>`).join('') + '<option value="__new">+ Nuevo rubro...</option>';
+  document.getElementById('editMoBody').innerHTML = `
+    <div class="fg"><label>COD</label><input type="number" class="fi" id="eCod" value="${maxCod+1}"></div>
+    <div class="fg"><label>Artículo *</label><input class="fi" id="eArt" placeholder="Nombre del insumo"></div>
+    <div class="fg"><label>Rubro *</label><select class="fi" id="eRub">${ropts}</select></div>
+    <div class="fg"><label>Precio Lista</label><input type="number" class="fi" id="ePre" placeholder="Opcional"></div>
+    <div class="fg"><label>Moneda</label><select class="fi" id="eMon"><option>ARS</option><option>USD</option></select></div>`;
+  openMo('editMo');
+}
+
+function saveEdit() {
+  const art = document.getElementById('eArt').value.trim();
+  let rub = document.getElementById('eRub').value;
+  const preV = document.getElementById('ePre').value.trim();
+  const mon = document.getElementById('eMon').value;
+  if (rub === '__new') { rub = prompt('Nombre del nuevo rubro:'); if (!rub) return; }
+  const pre = preV !== '' ? parseFloat(preV) : null;
+  const now = new Date().toISOString();
+
+  if (isNew) {
+    if (!art) { toast('El nombre del artículo es obligatorio', 'error'); return; }
+    const cod = parseInt(document.getElementById('eCod').value) || Date.now();
+    if (DB.productos.find(p => p.cod == cod)) { toast('Ya existe un producto con ese código', 'error'); return; }
+    DB.productos.push({ cod, articulo: art, rubro: rub, precio: pre, moneda: mon, activo: 'SI', ultima_act: now, es_manual: true, fuente: 'MANUAL' });
+    if (pre !== null) addHistEntry(now, cod, art, rub, null, pre, mon, 'MANUAL');
+    toast('Insumo agregado correctamente', 'success');
+  } else {
+    const p = DB.productos.find(x => x.cod == editCod);
+    if (!p) return;
+    const act = document.getElementById('eAct').value;
+    if (pre !== p.precio) addHistEntry(now, p.cod, art, rub, p.precio, pre, mon, 'MANUAL');
+    Object.assign(p, { articulo: art, rubro: rub, precio: pre, moneda: mon, activo: act, es_manual: true, ultima_act: now });
+    toast('Cambios guardados', 'success');
+  }
+  saveStorage(); closeMo('editMo'); renderAll();
+}
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
+function saveConfig() {
+  DB.config.repoUrl = document.getElementById('cfgUrl').value.trim();
+  saveStorage(); toast('Configuración guardada', 'success');
+}
+
+/* =========================================================
+   IMPORT / EXPORT
+   ========================================================= */
+function exportHist() {
+  dlBlob(new Blob([JSON.stringify(DB.historial, null, 2)], { type: 'application/json' }), 'historial_precios.json');
+  toast('Historial exportado', 'success');
+}
+function exportProductos() {
+  dlBlob(new Blob([JSON.stringify(DB.productos, null, 2)], { type: 'application/json' }), 'precios_actuales.json');
+  toast('Precios exportados', 'success');
+}
+function importHist(e) {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error('Formato inválido');
+      const ids = new Set(DB.historial.map(h => h.id));
+      const added = data.filter(h => !ids.has(h.id));
+      DB.historial = [...DB.historial, ...added].sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+      saveStorage(); renderAll();
+      toast(`Historial importado: ${added.length} entradas nuevas`, 'success');
+    } catch(err) { toast('Error al importar: ' + err.message, 'error'); }
+  };
+  r.readAsText(f);
+}
+
+/* =========================================================
+   SYNC RESULT MODAL
+   ========================================================= */
+function showSyncResult(chg, total, source) {
+  if (chg.priceChange === 0 && chg.newProd === 0) {
+    toast(`✓ Excel cargado (${total} insumos) — sin cambios de precios`, 'success');
+    return;
+  }
+  document.getElementById('syncMoBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+      <div style="text-align:center;padding:14px;background:var(--verde-l);border-radius:7px">
+        <div style="font-size:26px;font-weight:700;color:var(--verde2)">${total}</div>
+        <div style="font-size:11px;color:#555">Insumos procesados</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:#fff3e0;border-radius:7px">
+        <div style="font-size:26px;font-weight:700;color:#e65100">${chg.priceChange}</div>
+        <div style="font-size:11px;color:#555">Precios actualizados</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:#e3f2fd;border-radius:7px">
+        <div style="font-size:26px;font-weight:700;color:#1565c0">${chg.newProd}</div>
+        <div style="font-size:11px;color:#555">Nuevos insumos</div>
+      </div>
+      <div style="text-align:center;padding:14px;background:#f5f5f5;border-radius:7px">
+        <div style="font-size:26px;font-weight:700;color:#546e7a">${chg.noChange}</div>
+        <div style="font-size:11px;color:#555">Sin cambios</div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#aaa;text-align:center">Fuente: ${source} · ${fmtDate(new Date())}</p>`;
+  openMo('syncMo');
+}
+
+/* =========================================================
+   CLEAR DATA
+   ========================================================= */
+function clearAll() { DB.productos=[]; DB.historial=[]; DB.config.lastSync=null; saveStorage(); renderAll(); closeMo('confMo'); toast('Todos los datos borrados', 'info'); }
+function clearHist() { DB.historial=[]; saveStorage(); renderAll(); closeMo('confMo'); toast('Historial borrado', 'info'); }
+
+/* =========================================================
+   DRAG & DROP
+   ========================================================= */
+function setupDrop() {
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = [...e.dataTransfer.files].find(x => x.name.match(/\.xlsx?$/i));
+    if (f) readXlsx(f);
+  });
+}
+
+/* =========================================================
+   MODAL HELPERS
+   ========================================================= */
+function openMo(id) { document.getElementById(id).classList.add('open'); }
+function closeMo(id) { document.getElementById(id).classList.remove('open'); }
+function confirmAction(title, body, fn) {
+  document.getElementById('confTitle').textContent = title;
+  document.getElementById('confBody').innerHTML = body;
+  document.getElementById('confOk').onclick = fn;
+  openMo('confMo');
+}
+document.querySelectorAll('.mo').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+/* =========================================================
+   TABS
+   ========================================================= */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tb').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'analisis') renderPList();
+}
+
+/* =========================================================
+   UTILS
+   ========================================================= */
+function setSyncS(s, txt) {
+  document.getElementById('syncDot').className = 'sync-dot' + (s==='loading'?' loading':s==='error'?' error':'');
+  document.getElementById('syncTxt').textContent = txt;
+}
+function fmtP(n) { if (n===null||n===undefined) return '—'; return new Intl.NumberFormat('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}).format(n); }
+function fmtDate(d) { if (!d||isNaN(d)) return '—'; return d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function fmtDateShort(d) { if (!d||isNaN(d)) return '—'; return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); }
+function genId() { return Date.now()+'-'+Math.random().toString(36).substr(2,8); }
+function dlBlob(blob, name) { const u=URL.createObjectURL(blob),a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u); }
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, type='success') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||'✓'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3500);
+}
+</script>
+</body>
+</html>
